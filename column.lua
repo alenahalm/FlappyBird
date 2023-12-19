@@ -23,7 +23,7 @@ function Column:update(last)
     end
     if self.gap.x + self.width < 0 then
         self.gap.x = last.gap.x + 550
-        self.gap.y = love.math.random(10, height-self.height-10)
+        self.gap.y = love.math.random(10, height*0.81-self.height-10)
     end
 end
 

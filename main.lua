@@ -8,6 +8,11 @@ function love.load()
     width = love.graphics.getWidth()
     height = love.graphics.getHeight()
 
+    -- game state
+    gaming = false
+    menu = true
+    gameover = false
+    
     best_score = tonumber((love.filesystem.read("score.txt"))) or 0
     
     background = Background:create('images/background.png')
@@ -34,6 +39,20 @@ function love.load()
 end
 
 function love.update(dt)
+    background.stop = not gaming
+    if columns[nearest_column()]:check_collision(mover) then
+        fall = true
+        if score > best_score then
+            suc, mes = love.filesystem.write("score.txt", tostring(score))
+        end
+        if not stop then
+            make_jump()
+        end
+        for i = 0, column_counter do
+            columns[i]:stop()
+        end
+        stop = true
+    end
     if to_jump then
         mover:apply_force(jump)
         jump = jump + gravity
@@ -64,37 +83,67 @@ function love.update(dt)
         score = score + 1
         cur_column = nearest_column()
     end
+    if stop and mover.location.y > height then
+        gaming = false
+        menu = false
+        gameover = true
+    end
 
     background:update()
 end
 
 function love.draw()
 
-    background:draw()
-    mover:draw()
+    if gaming then
+        background:draw()
+        mover:draw()
 
-    if columns[nearest_column()]:check_collision(mover) then
-        fall = true
-        if score > best_score then
-            suc, mes = love.filesystem.write("score.txt", tostring(score))
-        end
-        if not stop then
-            make_jump()
-        end
+
         for i = 0, column_counter do
-            columns[i]:stop()
+            columns[i]:draw()
         end
-        stop = true
+        mover:draw()
+        love.graphics.setFont(love.graphics.newFont("font/font.ttf", 50))
+        love.graphics.print("Score: "..score, 100, 50)
+        love.graphics.print("Best score: "..best_score, width-330, 50)
+    elseif menu then
+        bg = love.graphics.newImage("images/menu.png")
+        love.graphics.draw(bg, 0, 0)
+        font = love.graphics.newFont("font/font.ttf", 120)
+        love.graphics.setFont(font)
+        txt = "Flappy Bird"
+        love.graphics.print(txt, width/2 - font:getWidth(txt)/2, 250)
+        font = love.graphics.newFont("font/font.ttf", 60)
+        love.graphics.setFont(font)
+        txt = "Начать игру"
+        love.graphics.print(txt, width/2 - font:getWidth(txt)/2, 550)
+        txt = "Выход"
+        love.graphics.print(txt, width/2 - font:getWidth(txt)/2, 650)
+    elseif gameover then
+        background:draw()
+        rect = love.graphics.newImage("images/gameover_block.png")
+        love.graphics.draw(rect, width/2 - rect:getWidth()/2, height/2 - rect:getHeight()/2)
+        font = love.graphics.newFont("font/font.ttf", 80)
+        love.graphics.setFont(font)
+        txt = "Вы погибли"
+        love.graphics.print(txt, width/2 - font:getWidth(txt)/2, 230)
+        font = love.graphics.newFont("font/font.ttf", 70)
+        love.graphics.setFont(font)
+        txt = "Ваш счет"
+        love.graphics.print(txt, width/4 - font:getWidth(txt)/2+100, 350)
+        txt = "Рекорд"
+        love.graphics.print(txt, width*0.75 - font:getWidth(txt)/2-100, 350)
+        font = love.graphics.newFont("font/font.ttf", 110)
+        love.graphics.setFont(font)
+        txt = score
+        love.graphics.print(txt, width/4 - font:getWidth(txt)/2+100, 470)
+        txt = best_score
+        love.graphics.print(txt, width*0.75 - font:getWidth(txt)/2-100, 470)
+        rep = love.graphics.newImage("images/replay.png")
+        close = love.graphics.newImage("images/close.png")
+        love.graphics.draw(rep, width/4 - rep:getWidth()/2+100, 700)
+        love.graphics.draw(close, width*0.75 - close:getWidth()/2-100, 700)
     end
-    for i = 0, column_counter do
-        columns[i]:draw()
-    end
-    mover:draw()
-    love.graphics.setFont(love.graphics.newFont("font/font.ttf", 50))
-    love.graphics.print("Score: "..score, 100, 50)
-    love.graphics.print("Best score: "..best_score, width-200, 50)
-    -- love.graphics.print("FPS = "..tostring(love.timer.getFPS()), 400, 50)
-    -- love.graphics.print(tostring(background.stop), 700, 50)
 end
 
 function nearest_column()
@@ -121,31 +170,64 @@ function farthest_column()
     return ind
 end
 
-function love.keypressed(key)
-    if key == "r" then
-        best_score = tonumber((love.filesystem.read("score.txt"))) or 0
-        stop = true
-        fall = false
-        mover:restart()
-        score = 0
-        for i = 0, column_counter do
-            columns[i] = Column:create(800 + 550 * i)
+function love.mousepressed(x, y, button)
+    if button == 1 then
+        if menu then
+            if x > (width/2 - font:getWidth("Начать игру")/2) and 
+                x < (width/2 + font:getWidth("Начать игру")/2) and
+                y > 530 and y < font:getHeight("Начать игру") + 530 then
+                gaming = true
+                menu = false
+                gameover = false
+            end
+            if x > (width/2 - font:getWidth("Выход")/2) and 
+                x < (width/2 + font:getWidth("Выход")/2) and
+                y > 650 and y < font:getHeight("Выход") + 650 then
+                love.event.quit()
+            end
+        elseif gameover then
+            if x > (width/4 - rep:getWidth()/2+100) and 
+                x < (width/4 + rep:getWidth()/2+100) and
+                y > 700 and y < rep:getHeight() + 700 then
+                    gaming = true
+                    menu = false
+                    gameover = false
+                    stop = true
+                    fall = false
+                    mover:restart()
+                    score = 0
+                    for i = 0, column_counter do
+                        columns[i] = Column:create(800 + 550 * i)
+                    end
+            end
+            if x > (width*0.75 - close:getWidth()/2-100) and 
+                x < (width*0.75 + close:getWidth()/2-100) and
+                y > 700 and y < close:getHeight() + 700 then
+                    gaming = false
+                    menu = true
+                    gameover = false
+            end
+            mover:restart()
         end
     end
-    if key == 'escape' then
+end
+
+function love.keypressed(key)
+    if key == 'escape' and menu then
         love.event.quit()
+    end
+    if key == "escape" and gaming then
+        menu = true
+        gaming = false
     end
     if fall then
         return
     end
-    if not stop and key == "w" then
+    if not gameover and (key == "w" or key == "space") then
         make_jump()
     end
     
-    if key == "b" then
-        background.stop = not background.stop
-    end
-    if key == "p" then
+    if stop and (key == "w" or key == "space") then
         count_jumps = 0
         stop = not stop
         if stop then
